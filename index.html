@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Profesional en Tiempo Real</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .chat-container {
+            width: 400px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 10px;
+        }
+        .message span {
+            font-weight: bold;
+        }
+        .message-input {
+            width: calc(100% - 50px);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .send-btn {
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .login-btn {
+            background-color: #4285F4;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .logout-btn {
+            background-color: #f44336;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .user-info {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div id="user-info" class="user-info"></div>
+    <button id="login-btn" class="login-btn">Iniciar sesión con Google</button>
+    <div id="chat-box" class="messages"></div>
+    <input type="text" id="message-input" class="message-input" placeholder="Escribe un mensaje..." />
+    <button id="send-btn" class="send-btn">Enviar</button>
+    <button id="logout-btn" class="logout-btn" style="display:none;">Cerrar sesión</button>
+</div>
+
+<!-- Incluye Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth.js"></script>
+
+<script>
+    // Configuración de Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyCH9ALimtp9vrr3K7ZfXgjlJq1i-YZRuVA",
+        authDomain: "chatser-8313b.firebaseapp.com",
+        databaseURL: "https://chatser-8313b-default-rtdb.firebaseio.com",
+        projectId: "chatser-8313b",
+        storageBucket: "chatser-8313b.appspot.com",
+        messagingSenderId: "792054468541",
+        appId: "1:792054468541:web:5e8c93c9ddf3f8ec354cd4",
+        measurementId: "G-41S2N0NEYV"
+      };
+
+    // Inicializar Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const auth = firebase.auth();
+
+    // Referencias de elementos HTML
+    const chatBox = document.getElementById('chat-box');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userInfo = document.getElementById('user-info');
+
+    // Función para cargar mensajes en tiempo real desde Realtime Database
+    function loadMessages() {
+        database.ref('chat').on('value', (snapshot) => {
+            chatBox.innerHTML = '';  // Limpia el chat antes de cargar nuevos mensajes
+            const messages = snapshot.val();
+            if (messages) {
+                for (let id in messages) {
+                    const message = messages[id];
+                    const messageElement = document.createElement('div');
+                    messageElement.classList.add('message');
+                    messageElement.innerHTML = `<span>${message.user}:</span> ${message.text}`;
+                    chatBox.appendChild(messageElement);
+                }
+                chatBox.scrollTop = chatBox.scrollHeight;  // Mantén el scroll al final
+            }
+        });
+    }
+
+    // Enviar mensaje a Realtime Database
+    sendBtn.addEventListener('click', () => {
+        const message = messageInput.value;
+        if (message.trim() !== '') {
+            const newMessageKey = database.ref('chat').push().key;
+            database.ref('chat/' + newMessageKey).set({
+                text: message,
+                user: auth.currentUser.displayName
+            }).then(() => {
+                messageInput.value = '';  // Limpia el campo de entrada
+            }).catch((error) => {
+                console.error("Error al enviar el mensaje: ", error);
+            });
+        } else {
+            alert("Por favor, escribe un mensaje antes de enviarlo.");
+        }
+    });
+
+    // Iniciar sesión con Google
+    loginBtn.addEventListener('click', () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).then(result => {
+            const user = result.user;
+            userInfo.innerHTML = `<p>Bienvenido, ${user.displayName}</p>`;
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'block';
+            messageInput.style.display = 'block';
+            sendBtn.style.display = 'block';
+            loadMessages();  // Cargar mensajes después de iniciar sesión
+        }).catch(error => {
+            console.error("Error al iniciar sesión con Google", error);
+        });
+    });
+
+    // Cerrar sesión
+    logoutBtn.addEventListener('click', () => {
+        auth.signOut().then(() => {
+            userInfo.innerHTML = '';
+            loginBtn.style.display = 'block';
+            logoutBtn.style.display = 'none';
+            messageInput.style.display = 'none';
+            sendBtn.style.display = 'none';
+            chatBox.innerHTML = '';  // Limpia el chat después de cerrar sesión
+        }).catch(error => {
+            console.error("Error al cerrar sesión", error);
+        });
+    });
+
+    // Ocultar elementos hasta que el usuario inicie sesión
+    messageInput.style.display = 'none';
+    sendBtn.style.display = 'none';
+</script>
+
+</body>
+</html>
